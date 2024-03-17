@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Veg Shop</title>
+</head>
+<body>
+<h1>Veg Shop</h1>
+<!-- Form to add new vegetable -->
+<div id="add-veg-form">
+  <label for="veg-name">Name:</label>
+  <input type="text" id="veg-name" >
+  <label for="veg-price">Price:</label>
+  <input type="number" id="veg-price" >
+  <label for="veg-quantity">Quantity:</label>
+  <input type="number" id="veg-quantity" >
+  <button onclick="addVegetable()">Add to Shop</button>
+</div>
+<!-- Container to display vegetable list -->
+<div id="veg-list">
+  <h2>Vegetable List</h2>
+  <div id="veg-items"></div>
+  <p>Total vegetables: <span id="total-quantity">0</span></p>
+</div>
+
+<!-- Script to make HTTP requests and handle CRUD operations -->
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script>
+  // Define an array to store vegetables
+  let vegetables = [];
+
+  // Function to fetch vegetables from the API
+  async function fetchVegetables() {
+    try {
+      const response = await axios.get('https://crudcrud.com/api/b1270c97d15549bca46e4b11f2600e75/vegetables');
+      vegetables = response.data;
+      renderVegetables(); // Call function to render vegetables
+      updateTotalQuantity(); // Call function to update total quantity
+    } catch (error) {
+      console.error('Error fetching vegetables:', error);
+    }
+  }
+
+  // Function to add a new vegetable
+  async function addVegetable() {
+    // Get values from input fields
+    const vegName = document.getElementById('veg-name').value;
+    const vegPrice = parseFloat(document.getElementById('veg-price').value);
+    const vegQuantity = parseInt(document.getElementById('veg-quantity').value);
+
+    // Check if all fields are filled
+    if (vegName && vegPrice && vegQuantity) {
+      // Create a vegetable object
+      const vegItem = {
+        name: vegName,
+        price: vegPrice,
+        quantity: vegQuantity
+      };
+
+      try {
+        // Make POST request to add vegetable to the API
+        const response = await axios.post('https://crudcrud.com/api/b1270c97d15549bca46e4b11f2600e75/vegetables', vegItem);
+
+        if (response.status === 201) {
+          // If successful, add the new vegetable to the array
+          vegetables.push(response.data);
+          renderVegetables(); // Call function to render vegetables
+          updateTotalQuantity(); // Call function to update total quantity
+          // Clear input fields
+          document.getElementById('veg-name').value = '';
+          document.getElementById('veg-price').value = '';
+          document.getElementById('veg-quantity').value = '';
+        } else {
+          console.error('Failed to add vegetable:', response.statusText);
+        }
+      } catch (error) {
+        console.error('Error adding vegetable:', error);
+      }
+    } else {
+      alert('Please enter valid values for vegetable details.');
+    }
+  }
+
+  // Function to remove a vegetable
+  async function removeVegetable(id, index) {
+    try {
+      // Make DELETE request to remove vegetable from the API
+      const response = await axios.delete(`https://crudcrud.com/api/b1270c97d15549bca46e4b11f2600e75/vegetables/${id}`);
+
+      if (response.status === 200) {
+        // If successful, remove the vegetable from the array
+        vegetables.splice(index, 1);
+        renderVegetables(); // Call function to render vegetables
+        updateTotalQuantity(); // Call function to update total quantity
+      } else {
+        console.error('Failed to delete vegetable:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error deleting vegetable:', error);
+    }
+  }
+
+  // Function to update quantity when buying a vegetable
+  async function buyVegetable(index) {
+    // Get new quantity from input field
+    const newQuantity = parseInt(document.getElementById(`veg-quantity-${index}`).value);
+    if (!isNaN(newQuantity) && newQuantity > 0) {
+      // Decrease quantity of the vegetable
+      vegetables[index].quantity -= newQuantity;
+      if (vegetables[index].quantity <= 0) {
+        // If quantity becomes zero or negative, remove the vegetable
+        await removeVegetable(vegetables[index]._id, index);
+      } else {
+        // Otherwise, update the vegetable in the array
+        await updateVegetable(vegetables[index]._id, vegetables[index]);
+        renderVegetables(); // Call function to render vegetables
+        updateTotalQuantity(); // Call function to update total quantity
+      }
+    } else {
+      alert('Please enter a valid quantity.');
+    }
+  }
+
+  // Function to change quantity of a vegetable
+  async function changeQuantity(index) {
+    // Get new quantity from input field
+    const newQuantity = parseInt(document.getElementById(`veg-quantity-${index}`).value);
+    if (!isNaN(newQuantity) && newQuantity >= 0) {
+      // Update quantity of the vegetable in the array
+      vegetables[index].quantity = newQuantity;
+      await updateVegetable(vegetables[index]._id, vegetables[index]);
+      renderVegetables(); // Call function to render vegetables
+      updateTotalQuantity(); // Call function to update total quantity
+    } else {
+      alert('Please enter a valid quantity.');
+    }
+  }
+
+  // Function to update a vegetable in the API
+  async function updateVegetable(id, data) {
+    try {
+      // Make PUT request to update vegetable in the API
+      const response = await axios.put(`https://crudcrud.com/api/b1270c97d15549bca46e4b11f2600e75/vegetables/${id}`, data);
+      if (response.status !== 200) {
+        console.error('Failed to update vegetable:', response.statusText);
+      }
+    } catch (error) {
+      console.error('Error updating vegetable:', error);
+    }
+  }
+
+  // Function to render vegetables in the vegetable list
+  function renderVegetables() {
+    const vegItemsContainer = document.getElementById('veg-items');
+    vegItemsContainer.innerHTML = '';
+    vegetables.forEach((veg, index) => {
+      const div = document.createElement('div');
+      div.classList.add('veg-item');
+      div.innerHTML = `
+        <!-- Display vegetable name, price, and quantity with input field -->
+        <span>${veg.name} - RS${veg.price} - Quantity: <input type="number" id="veg-quantity-${index}" value="${veg.quantity}" style="width: 50px;"></span>
+        <!-- Button group for buy and delete actions -->
+        <button onclick="buyVegetable(${index})">Buy</button>
+        <button onclick="removeVegetable('${veg._id}', ${index})">Delete</button>
+      `;
+      vegItemsContainer.appendChild(div);
+    });
+  }
+
+  // Function to update total quantity of all vegetables
+  function updateTotalQuantity() {
+    const totalQuantityElement = document.getElementById('total-quantity');
+    let totalQuantity = 0;
+    vegetables.forEach(veg => {
+      totalQuantity += veg.quantity;
+    });
+    totalQuantityElement.textContent = totalQuantity;
+  }
+
+  // Call fetchVegetables function when the page loads
+  fetchVegetables();
+</script>
+</body>
+</html>
